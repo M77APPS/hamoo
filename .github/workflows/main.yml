@@ -1,0 +1,44 @@
+name: Advanced Android APK Builder
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository Code
+        uses: actions/checkout@v4
+
+      - name: 2. Unzip Project Source Direct to Root
+        run: |
+          unzip -o "*.zip" -d . || true
+          rm -f *.zip
+
+      - name: 3. Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 4. Auto-Generate Missing Gradle Wrapper
+        run: |
+          if [ ! -f gradlew ]; then
+            echo "⚠️ gradlew is missing! Generating it automatically for you..."
+            gradle wrapper
+          fi
+          chmod +x gradlew
+          sed -i 's/\r$//' gradlew
+
+      - name: 5. Build Android Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: 6. Upload Generated APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HamoElectronic-APK
+          path: "**/build/outputs/apk/debug/*.apk"
+          retention-days: 7
