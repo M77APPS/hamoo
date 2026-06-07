@@ -1,4 +1,4 @@
-name: Advanced Android APK Builder
+name: Ultimate Android APK Builder Pro
 
 on:
   push:
@@ -13,32 +13,50 @@ jobs:
       - name: 1. Checkout Repository Code
         uses: actions/checkout@v4
 
-      - name: 2. Unzip Project Source Direct to Root
+      - name: 2. Unzip and Clean Local Properties
         run: |
+          echo "Extracting project files..."
           unzip -o "*.zip" -d . || true
           rm -f *.zip
+          
+          # حذف ملفات التكوين المحلية لتجنب تعارض مسارات الـ SDK في السيرفر السحابي
+          find . -name "local.properties" -delete
+          echo "Cleared local.properties successfully."
 
-      - name: 3. Set up JDK 17
+      - name: 3. Set up JDK 17 with Advanced Cache
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: 4. Auto-Generate Missing Gradle Wrapper
+      - name: 4. Auto-Generate or Fix Gradle Wrapper
         run: |
           if [ ! -f gradlew ]; then
-            echo "⚠️ gradlew is missing! Generating it automatically for you..."
+            echo "⚠️ gradlew is missing! Generating a fresh wrapper..."
             gradle wrapper
           fi
           chmod +x gradlew
           sed -i 's/\r$//' gradlew
 
-      - name: 5. Build Android Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: 5. Multi-Location Keystore Injector
+        run: |
+          echo "Generating and injecting debug.keystore..."
+          # توليد الملف في المجلد الرئيسي
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+          
+          # نسخ الملف ذكياً داخل مجلد app أو أي مجلد يحتوي على كود برمي لضمان نجاح التوقيع
+          find . -type d -name "app" -exec cp debug.keystore {}/ \; || true
+          find . -type d -name "src" -exec dirname {} \; | xargs -I {} cp debug.keystore {}/ || true
 
-      - name: 6. Upload Generated APK Artifact
+      - name: 6. Build Android Debug APK (Optimized Memory)
+        run: |
+          export GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx2048m -Dorg.gradle.workers.max=2"
+          ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: 7. Upload and Deliver Ultimate APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HamoElectronic-APK
+          name: HamoElectronic-Ultimate-APK
           path: "**/build/outputs/apk/debug/*.apk"
           retention-days: 7
